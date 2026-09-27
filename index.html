@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>一夜城</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --night:#0b1026; --ink:#121932; --panel:rgba(14,19,38,.82); --line:rgba(232,228,216,.16);
+  --moon:#e8e4d8; --dim:#9aa3bd; --lamp:#e8a33d; --lamp2:#f3c575; --blood:#d9482b; --pine:#6fae7a;
+  --disp:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--night);color:var(--moon);font-family:var(--body);overflow:hidden}
+#app{position:fixed;inset:0;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas#c{display:block;width:100%;height:100%}
+.hud{position:absolute;pointer-events:none}
+.hud *{pointer-events:auto}
+#top{left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;backdrop-filter:blur(6px)}
+#clock .koku{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:.06em;line-height:1.1}
+#clock .sub{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:2px}
+#stats{display:flex;gap:14px;align-items:center;font-variant-numeric:tabular-nums}
+.stat{display:flex;flex-direction:column;align-items:flex-start;min-width:52px}
+.stat b{font-size:20px;font-family:var(--disp)}
+.stat span{font-size:11px;color:var(--dim);letter-spacing:.08em}
+#wood b{color:var(--lamp2)}
+#hpwrap{width:170px}
+#hpbar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin-top:4px}
+#hpfill{height:100%;width:100%;background:linear-gradient(90deg,var(--lamp),var(--lamp2));transition:width .2s}
+#hpfill.low{background:var(--blood)}
+#scout{right:16px;top:calc(env(safe-area-inset-top,0px) + 92px);width:210px;font-size:13px;line-height:1.6}
+#scout h3{font-family:var(--disp);font-size:15px;margin:0 0 4px;letter-spacing:.1em;color:var(--lamp2)}
+#scout .red{color:#ff8a70;font-weight:700}
+#scout ul{margin:4px 0 0;padding-left:1.1em}
+#bottom{left:0;right:0;bottom:0;padding:0 16px calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;gap:10px;align-items:flex-end;justify-content:center;flex-wrap:wrap}
+#palette{display:flex;gap:6px;overflow-x:auto;max-width:100%;padding:6px}
+.tool{appearance:none;border:1px solid var(--line);background:var(--ink);color:var(--moon);border-radius:6px;padding:6px 10px 5px;min-width:64px;cursor:pointer;font-family:var(--body);display:flex;flex-direction:column;align-items:center;gap:1px;flex:none}
+.tool .n{font-family:var(--disp);font-size:16px;font-weight:700}
+.tool .c{font-size:11px;color:var(--lamp2);font-variant-numeric:tabular-nums}
+.tool .k{font-size:10px;color:var(--dim)}
+.tool.on{border-color:var(--lamp);box-shadow:0 0 0 1px var(--lamp) inset,0 0 14px rgba(232,163,61,.35)}
+.tool:focus-visible,.act:focus-visible,.big:focus-visible{outline:2px solid var(--lamp2);outline-offset:2px}
+.tool:disabled{opacity:.4;cursor:not-allowed}
+#actions{display:flex;gap:6px;padding:6px}
+.act{appearance:none;border:1px solid var(--lamp);background:rgba(232,163,61,.14);color:var(--lamp2);border-radius:6px;padding:10px 14px;font-family:var(--disp);font-weight:700;font-size:15px;cursor:pointer;letter-spacing:.06em}
+#desc{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 96px);font-size:12px;color:var(--dim);background:var(--panel);padding:4px 10px;border-radius:4px;white-space:nowrap;pointer-events:none}
+#toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 96px);transform:translateX(-50%);font-family:var(--disp);font-size:24px;font-weight:800;letter-spacing:.12em;text-shadow:0 2px 12px #000;pointer-events:none;opacity:0;transition:opacity .4s;text-align:center;white-space:nowrap}
+#toast.show{opacity:1}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(ellipse at 50% 40%,rgba(11,16,38,.55),rgba(5,7,16,.92));z-index:5}
+.scroll{max-width:520px;width:100%;background:linear-gradient(180deg,#1a2140,#10162c);border:1px solid var(--line);border-radius:8px;padding:26px 26px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.scroll h1{font-family:var(--disp);font-size:clamp(44px,11vw,72px);margin:0;letter-spacing:.2em;line-height:1;text-wrap:balance}
+.scroll .eyebrow{font-size:12px;letter-spacing:.3em;color:var(--lamp2);margin-bottom:10px}
+.scroll p{line-height:1.8;margin:14px 0;font-size:14px}
+.scroll .msg{font-family:var(--disp);font-size:17px;border-left:3px solid var(--blood);padding:6px 12px;background:rgba(217,72,43,.08)}
+.scroll table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+.scroll td{padding:4px 0;border-bottom:1px solid var(--line)}
+.scroll td:first-child{color:var(--dim);width:42%}
+.big{appearance:none;border:0;background:var(--lamp);color:#1a1206;font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:.2em;padding:12px 28px;border-radius:6px;cursor:pointer;margin-top:8px}
+.rank{font-family:var(--disp);font-size:34px;font-weight:800;color:var(--lamp2);margin:6px 0}
+@media (max-width:640px){
+  #scout{display:none}
+  #hpwrap{width:120px}
+  #clock .koku{font-size:18px}
+  .stat b{font-size:17px}
+  #desc{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}
+}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+</head><body>
+<div id="app">
+  <div class="overlay" id="intro">
+    <div class="scroll">
+      <div class="eyebrow">墨俣 ─ 普請の夜</div>
+      <h1>一夜城</h1>
+      <p class="msg" id="introMsg">斥候より急報。敵軍、明朝に攻め寄せる。</p>
+      <p>明け六つ（朝6時）まで、残るは一夜。木材を使って石垣・木柵・櫓を築き、天守を守れ。森の木を斧で伐れば木材が増える。</p>
+      <table>
+        <tr><td>建てる</td><td>下の普請札を選んで地面をクリック</td></tr>
+        <tr><td>伐採・撤去</td><td>「斧」で木や建物をクリック</td></tr>
+        <tr><td>視点</td><td>ドラッグで回転、右ドラッグで移動、ホイールで拡大</td></tr>
+        <tr><td>合戦中</td><td>敵をクリックすると天守から矢を放つ</td></tr>
+        <tr><td>赤い線</td><td>敵が進むと読んだ道筋。壁で塞ぐと弱い所を狙ってくる</td></tr>
+      </table>
+      <button class="big" id="startBtn" type="button">普請はじめ</button>
+    </div>
+  </div>
+  <canvas id="c"></canvas>
+
+  <div id="top" class="hud">
+    <div id="clock" class="card"><div class="koku" id="koku">酉の刻</div><div class="sub" id="clocksub">暮れ六つ 18:00</div></div>
+    <div id="stats" class="card">
+      <div class="stat" id="hpwrap"><span>天守 耐久</span><div id="hpbar"><div id="hpfill"></div></div><span id="hptxt" style="margin-top:3px">600 / 600</span></div>
+      <div class="stat" id="wood"><span>木材</span><b id="woodv">0</b></div>
+      <div class="stat"><span>討取</span><b id="killv">0</b></div>
+      <div class="stat"><span>敵勢</span><b id="enemyv">—</b></div>
+    </div>
+  </div>
+
+  <div id="scout" class="hud card">
+    <h3>斥候の報せ</h3>
+    <div id="scouttxt"></div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="desc"></div>
+
+  <div id="bottom" class="hud">
+    <div id="palette" class="card"></div>
+    <div id="actions" class="card"><button class="act" id="dawnBtn" type="button">夜明けを待つ</button></div>
+  </div>
+
+  <div class="overlay" id="endov" hidden>
+    <div class="scroll">
+      <div class="eyebrow" id="endEyebrow">合戦の結果</div>
+      <h1 id="endTitle" style="font-size:clamp(38px,9vw,56px)">守り抜いた</h1>
+      <div class="rank" id="endRank"></div>
+      <table id="endTable"></table>
+      <button class="big" id="retryBtn" type="button">もう一夜</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const N=25,S=2,HALF=(N-1)/2,NIGHT=150,KEEP_MAX=600;
+const idx=(x,z)=>z*N+x, cx=i=>i%N, cz=i=>(i/N)|0;
+const cpos=i=>[(cx(i)-HALF)*S,(cz(i)-HALF)*S];
+const wcell=(x,z)=>{const a=Math.round(x/S+HALF),b=Math.round(z/S+HALF);return(a<0||b<0||a>=N||b>=N)?-1:idx(a,b)};
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+const BUILD={
+  fence :{name:'木柵',cost:5 ,hp:50 ,block:true ,key:'1',desc:'安くて早い。ただし破られやすい'},
+  wall  :{name:'石垣',cost:15,hp:170,block:true ,key:'2',desc:'頑丈な壁。敵の足を長く止める'},
+  yagura:{name:'櫓'  ,cost:45,hp:120,block:true ,key:'3',desc:'弓兵が近づく敵に矢を射かける（射程4マス半）'},
+  moat  :{name:'堀'  ,cost:8 ,hp:0  ,block:false,key:'4',desc:'通る敵の足が大きく鈍る'},
+  spike :{name:'逆茂木',cost:10,hp:0,block:false,key:'5',desc:'踏み込んだ敵に傷を負わせ続ける'},
+  axe   :{name:'斧'  ,cost:0 ,hp:0  ,block:false,key:'6',desc:'木を伐ると木材+12。建物は撤去して半分返る'},
+};
+const FOE={
+  ashi:{name:'足軽',hp:42 ,spd:1.7,dps:10,wood:4},
+  kiba:{name:'騎馬',hp:34 ,spd:3.4,dps:7 ,wood:5},
+  ram :{name:'破城槌',hp:280,spd:.8,dps:55,wood:15},
+};
+const WAVES=[
+  {ashi:14},
+  {ashi:16,kiba:6},
+  {ashi:22,kiba:9,ram:3},
+];
+const SIDES={N:'北',S:'南',E:'東',W:'西'};
+
+/* ---------- three setup ---------- */
+const canvas=$('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+const NIGHT_SKY=new THREE.Color(0x0b1026),DAWN_SKY=new THREE.Color(0xd98a5a),DAY_SKY=new THREE.Color(0x9ab8d6);
+scene.background=NIGHT_SKY.clone();
+scene.fog=new THREE.Fog(0x0b1026,55,120);
+const camera=new THREE.PerspectiveCamera(45,1,.5,400);
+const hemi=new THREE.HemisphereLight(0x3a5288,0x0a0f1a,.55);scene.add(hemi);
+const moon=new THREE.DirectionalLight(0xa9bbff,.65);
+moon.position.set(-30,50,-20);moon.castShadow=true;
+moon.shadow.mapSize.set(2048,2048);
+Object.assign(moon.shadow.camera,{left:-32,right:32,top:32,bottom:-32,near:1,far:140});
+scene.add(moon);
+const torch=new THREE.PointLight(0xffa04a,1.4,34,1.6);torch.position.set(0,7,0);scene.add(torch);
+
+const M=(c,o={})=>new THREE.MeshLambertMaterial(Object.assign({color:c},o));
+// ground
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),M(0x1e3322));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const field=new THREE.Mesh(new THREE.PlaneGeometry(N*S,N*S),M(0x2c4127));
+field.rotation.x=-Math.PI/2;field.position.y=.01;field.receiveShadow=true;scene.add(field);
+const grid=new THREE.GridHelper(N*S,N,0x55704a,0x3a5236);grid.position.y=.02;grid.material.transparent=true;grid.material.opacity=.35;scene.add(grid);
+// moon disc + stars + mountains
+const moonDisc=new THREE.Mesh(new THREE.SphereGeometry(4,20,14),new THREE.MeshBasicMaterial({color:0xf3eed8,fog:false}));
+moonDisc.position.set(-90,75,-110);scene.add(moonDisc);
+{const g=new THREE.BufferGeometry(),p=[];for(let i=0;i<700;i++){const t=Math.random()*Math.PI*2,ph=Math.random()*1.25,r=190;p.push(r*Math.sin(ph)*Math.cos(t),r*Math.cos(ph)+10,r*Math.sin(ph)*Math.sin(t))}
+g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+var stars=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:1.1,fog:false,transparent:true}));scene.add(stars);}
+for(let i=0;i<22;i++){const a=i/22*Math.PI*2+rnd(-.1,.1),r=rnd(78,95),h=rnd(10,26);
+  const m=new THREE.Mesh(new THREE.ConeGeometry(rnd(12,20),h,5),M(0x141c2e));m.position.set(Math.cos(a)*r,h/2-1,Math.sin(a)*r);scene.add(m);}
+// a river across the far north for flavor
+{const r=new THREE.Mesh(new THREE.PlaneGeometry(160,6),M(0x1b3a5e,{emissive:0x0a1a30}));r.rotation.x=-Math.PI/2;r.position.set(0,.03,-34);scene.add(r);}
+
+/* ---------- state ---------- */
+let cells, keepHp, wood, kills, phase='intro', tNight=0, tBattle=0, speed=1;
+let enemies=[], projs=[], waveIdx=-1, spawnQueue=[], spawnTimer=0, waveTimer=0, sides=[];
+let dist=new Float32Array(N*N), fieldTimer=0, tool='wall';
+const world=new THREE.Group();scene.add(world);
+const pathGroup=new THREE.Group();scene.add(pathGroup);
+const bannerGroup=new THREE.Group();scene.add(bannerGroup);
+
+/* ---------- builders ---------- */
+function shadow(o){o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true}});return o}
+function roof(r,h,c=0x2a2f3a){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,4),M(c));m.rotation.y=Math.PI/4;return m}
+function makeKeep(){
+  const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.BoxGeometry(6,1.6,6),M(0x7b7d82));base.position.y=.8;g.add(base);
+  const t=[[4.6,2,2.6,3.9,1.4],[3.4,1.7,5.3,2.9,1.2],[2.4,1.5,7.6,2.2,1.6]];
+  t.forEach(([w,h,y,rr,rh])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,w),M(0xece6d6));b.position.y=y;g.add(b);
+    const rf=roof(rr,rh);rf.position.y=y+h/2+rh/2-.05;g.add(rf);
+    for(let s=0;s<4;s++){const win=new THREE.Mesh(new THREE.BoxGeometry(w*.5,h*.28,.05),new THREE.MeshBasicMaterial({color:0xffb45a}));
+      const a=s*Math.PI/2;win.position.set(Math.sin(a)*(w/2+.03),y,Math.cos(a)*(w/2+.03));win.rotation.y=a;g.add(win);}});
+  for(const sx of[-.5,.5]){const sh=new THREE.Mesh(new THREE.BoxGeometry(.25,.5,.25),M(0xd8b04a,{emissive:0x5a4010}));sh.position.set(sx,9.7,0);g.add(sh)}
+  return shadow(g);
+}
+function makeStruct(t){
+  const g=new THREE.Group();let mats=[];
+  if(t==='wall'){const c=new THREE.Color(0x8a8a86).offsetHSL(0,0,rnd(-.04,.04));const m=M(c);mats.push(m);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(2,1.7,2),m);b.position.y=.85;g.add(b);
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(2.02,.5,1.2),M(0xe3ddcc));cap.position.y=1.95;g.add(cap);
+    const tile=new THREE.Mesh(new THREE.BoxGeometry(2.04,.14,1.5),M(0x2a2f3a));tile.position.y=2.25;g.add(tile);}
+  else if(t==='fence'){const m=M(0x8a6238);mats.push(m);
+    for(let i=0;i<5;i++){const p=new THREE.Mesh(new THREE.CylinderGeometry(.13,.15,1.9,5),m);p.position.set(-.8+i*.4,.95,0);g.add(p)}
+    for(const y of[.6,1.4]){const bar=new THREE.Mesh(new THREE.BoxGeometry(2,.12,.12),m);bar.position.set(0,y,.16);g.add(bar)}}
+  else if(t==='yagura'){const m=M(0x6d4a2b);mats.push(m);
+    for(const[x,z]of[[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]]){const l=new THREE.Mesh(new THREE.BoxGeometry(.22,2.6,.22),m);l.position.set(x,1.3,z);g.add(l)}
+    const floor=new THREE.Mesh(new THREE.BoxGeometry(1.9,.9,1.9),M(0xe6dfcf));floor.position.y=3;g.add(floor);mats.push(floor.material);
+    const rf=roof(1.7,1.1);rf.position.y=4;g.add(rf);
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(.3,.4,.3),new THREE.MeshBasicMaterial({color:0xffb45a}));lamp.position.set(0,2.2,.8);g.add(lamp);}
+  else if(t==='moat'){const w=new THREE.Mesh(new THREE.BoxGeometry(2,.1,2),M(0x1d4e7a,{emissive:0x0c2440}));w.position.y=.03;g.add(w);w.receiveShadow=true;return{g,mats};}
+  else if(t==='spike'){const m=M(0x5e4128);mats.push(m);
+    for(let i=0;i<7;i++){const s=new THREE.Mesh(new THREE.ConeGeometry(.1,1.3,4),m);s.position.set(rnd(-.7,.7),.5,rnd(-.7,.7));s.rotation.set(rnd(-.7,.7),0,rnd(-.7,.7));g.add(s)}}
+  else if(t==='tree'){const tr=new THREE.Mesh(new THREE.CylinderGeometry(.18,.25,1.2,5),M(0x4a3222));tr.position.y=.6;g.add(tr);
+    const h=rnd(2.6,3.6);const c=new THREE.Mesh(new THREE.ConeGeometry(rnd(.9,1.2),h,6),M(new THREE.Color(0x1f4a2a).offsetHSL(0,0,rnd(-.04,.04))));c.position.y=1+h/2;g.add(c);
+    g.rotation.y=rnd(0,6);}
+  shadow(g);return{g,mats};
+}
+function makeFoe(type){
+  const g=new THREE.Group();const body=M(type==='ram'?0x5a3a22:0x8e2a22);
+  const banner=new THREE.MeshBasicMaterial({color:[0xd9482b,0x2a2f3a,0xe0c050][Math.max(0,waveIdx)%3],side:THREE.DoubleSide});
+  if(type==='ashi'){
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.28,.34,.9,6),body);b.position.y=.55;g.add(b);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(.22,8,6),M(0xd8b48c));h.position.y=1.2;g.add(h);
+    const hat=new THREE.Mesh(new THREE.ConeGeometry(.36,.2,8),M(0x222222));hat.position.y=1.38;g.add(hat);
+    const pole=new THREE.Mesh(new THREE.BoxGeometry(.04,1.2,.04),M(0x333333));pole.position.set(0,1.5,-.25);g.add(pole);
+    const f=new THREE.Mesh(new THREE.PlaneGeometry(.3,.6),banner);f.position.set(.16,1.8,-.25);g.add(f);
+    const yari=new THREE.Mesh(new THREE.BoxGeometry(.04,.04,1.8),M(0x9a8a70));yari.position.set(.3,.9,.4);g.add(yari);
+  }else if(type==='kiba'){
+    const horse=new THREE.Mesh(new THREE.BoxGeometry(.5,.55,1.3),M(0x3b2618));horse.position.y=.75;g.add(horse);
+    const nk=new THREE.Mesh(new THREE.BoxGeometry(.3,.5,.3),horse.material);nk.position.set(0,1.1,.6);g.add(nk);
+    for(const[x,z]of[[-.18,-.45],[.18,-.45],[-.18,.45],[.18,.45]]){const l=new THREE.Mesh(new THREE.BoxGeometry(.1,.5,.1),horse.material);l.position.set(x,.25,z);g.add(l)}
+    const r=new THREE.Mesh(new THREE.CylinderGeometry(.22,.26,.6,6),body);r.position.y=1.3;g.add(r);
+    const h=new THREE.Mesh(new THREE.SphereGeometry(.18,8,6),M(0x222222));h.position.y=1.72;g.add(h);
+    const f=new THREE.Mesh(new THREE.PlaneGeometry(.3,.6),banner);f.position.set(0,2.1,-.2);g.add(f);
+  }else{
+    const cart=new THREE.Mesh(new THREE.BoxGeometry(1.2,.5,2),body);cart.position.y=.5;g.add(cart);
+    const rf=new THREE.Mesh(new THREE.ConeGeometry(1,1,4),M(0x3a2a1a));rf.rotation.y=Math.PI/4;rf.scale.z=1.5;rf.position.y=1.3;g.add(rf);
+    const log=new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,2.6,8),M(0x6a4a2a));log.rotation.x=Math.PI/2;log.position.set(0,.75,.4);g.add(log);
+  }
+  shadow(g);g.userData.body=body;return g;
+}
+
+/* ---------- grid ---------- */
+function isRing(i){const x=cx(i),z=cz(i);return x===0||z===0||x===N-1||z===N-1}
+function isKeep(i){const x=cx(i),z=cz(i);return Math.abs(x-12)<=1&&Math.abs(z-12)<=1}
+function setCell(i,t){
+  const c=cells[i];if(c.mesh){world.remove(c.mesh)}
+  c.t=t;c.mesh=null;c.mats=[];c.hp=BUILD[t]?BUILD[t].hp:0;c.max=c.hp;c.cd=rnd(0,.8);
+  if(t&&t!=='keep'){const{g,mats}=makeStruct(t);const[x,z]=cpos(i);g.position.set(x,0,z);world.add(g);c.mesh=g;c.mats=mats;
+    c.base=mats.map(m=>m.color.clone());}
+}
+function reset(){
+  world.clear();enemies.forEach(e=>scene.remove(e.g));projs.forEach(p=>scene.remove(p.m));
+  enemies=[];projs=[];
+  cells=Array.from({length:N*N},()=>({t:'',hp:0,max:0,mesh:null,mats:[],cd:0}));
+  for(let i=0;i<N*N;i++)if(isKeep(i))cells[i].t='keep';
+  const keep=makeKeep();world.add(keep);
+  for(let k=0;k<70;k++){const i=(Math.random()*N*N)|0;const x=cx(i),z=cz(i);
+    if(isRing(i)||cells[i].t)continue;if(Math.max(Math.abs(x-12),Math.abs(z-12))<4)continue;setCell(i,'tree');}
+  keepHp=KEEP_MAX;wood=260;kills=0;tNight=0;tBattle=0;speed=1;waveIdx=-1;spawnQueue=[];waveTimer=0;
+  const all=['N','E','S','W'].sort(()=>Math.random()-.5);sides=all.slice(0,2);
+  scene.background.copy(NIGHT_SKY);scene.fog.color.copy(NIGHT_SKY);hemi.intensity=.55;moon.intensity=.65;moon.color.set(0xa9bbff);moon.position.set(-30,50,-20);stars.material.opacity=1;
+  $('introMsg').textContent=`斥候より急報。敵軍、明朝に${SIDES[sides[0]]}と${SIDES[sides[1]]}より攻め寄せる。`;
+  const tot={ashi:0,kiba:0,ram:0};WAVES.forEach(w=>{for(const k in w)tot[k]+=w[k]});
+  $('scouttxt').innerHTML=`敵は<span class="red">${SIDES[sides[0]]}・${SIDES[sides[1]]}</span>から来る。<ul><li>足軽 およそ${tot.ashi}</li><li>騎馬 ${tot.kiba}（足が速い）</li><li>破城槌 ${tot.ram}（壁を砕く）</li></ul><div style="margin-top:6px;color:var(--dim)">三段構えで押し寄せる見込み。</div>`;
+  makeBanners();computeField();drawPaths();
+  $('dawnBtn').textContent='夜明けを待つ';
+}
+function spawnCells(side){const r=[];for(let k=3;k<N-3;k++){r.push(side==='N'?idx(k,0):side==='S'?idx(k,N-1):side==='W'?idx(0,k):idx(N-1,k))}return r}
+function makeBanners(){bannerGroup.clear();
+  for(const s of sides)for(const k of[6,12,18]){const i=spawnCells(s)[k-3];const[x,z]=cpos(i);
+    const p=new THREE.Mesh(new THREE.BoxGeometry(.1,3,.1),M(0x222222));p.position.set(x,1.5,z);bannerGroup.add(p);
+    const f=new THREE.Mesh(new THREE.PlaneGeometry(.7,1.4),new THREE.MeshBasicMaterial({color:0xd9482b,side:THREE.DoubleSide}));f.position.set(x+.4,2.3,z);bannerGroup.add(f);}}
+
+/* ---------- pathfinding (Dijkstra from keep) ---------- */
+function enterCost(i){const c=cells[i];
+  if(c.t==='keep')return 1;
+  if(c.t==='wall'||c.t==='fence'||c.t==='yagura')return 1+c.hp/7;
+  if(c.t==='moat')return 4;if(c.t==='spike')return 3.5;if(c.t==='tree')return 2;return 1;}
+function nbrs(i){const x=cx(i),z=cz(i),r=[];if(x>0)r.push(i-1);if(x<N-1)r.push(i+1);if(z>0)r.push(i-N);if(z<N-1)r.push(i+N);return r}
+function computeField(){
+  dist.fill(Infinity);const done=new Uint8Array(N*N);
+  for(let i=0;i<N*N;i++)if(cells[i].t==='keep')dist[i]=0;
+  for(;;){let b=-1,bd=Infinity;for(let i=0;i<N*N;i++)if(!done[i]&&dist[i]<bd){bd=dist[i];b=i}
+    if(b<0)break;done[b]=1;const c=enterCost(b);for(const n of nbrs(b))if(!done[n]&&bd+c<dist[n])dist[n]=bd+c;}
+}
+function nextCell(i){let best=-1,bv=Infinity;for(const n of nbrs(i)){const v=dist[n]+enterCost(n)+Math.random()*.3;if(v<bv){bv=v;best=n}}return best}
+function drawPaths(){
+  pathGroup.children.forEach(o=>o.geometry.dispose());pathGroup.clear();
+  if(phase==='battle'||phase==='end')return;
+  const mat=new THREE.LineDashedMaterial({color:0xff5a3c,dashSize:.6,gapSize:.4,transparent:true,opacity:.85});
+  for(const s of sides)for(const k of[6,12,18]){let i=spawnCells(s)[k-3];const pts=[];
+    for(let n=0;n<120&&cells[i].t!=='keep';n++){const[x,z]=cpos(i);pts.push(new THREE.Vector3(x,.25,z));
+      let best=-1,bv=Infinity;for(const m of nbrs(i)){const v=dist[m]+enterCost(m);if(v<bv){bv=v;best=m}}i=best;}
+    const[x,z]=cpos(i);pts.push(new THREE.Vector3(x,.25,z));
+    const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat);l.computeLineDistances();pathGroup.add(l);}
+}
+
+/* ---------- audio ---------- */
+let AC=null;
+function audio(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}}
+function tone(f,d,type='triangle',v=.05,f2){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d)}
+function drum(v=.4){if(!AC)return;const t=AC.currentTime,len=AC.sampleRate*.5,b=AC.createBuffer(1,len,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,4);
+  const s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=b;f.type='lowpass';f.frequency.value=180;g.gain.value=v;s.connect(f).connect(g).connect(AC.destination);s.start(t);tone(70,.5,'sine',v*.6,40)}
+
+/* ---------- UI ---------- */
+const pal=$('palette');
+for(const k in BUILD){const b=BUILD[k];const el=document.createElement('button');el.type='button';el.className='tool';el.id='tool-'+k;
+  el.innerHTML=`<span class="n">${b.name}</span><span class="c">${b.cost?('木 '+b.cost):'伐採/撤去'}</span><span class="k">${b.key}</span>`;
+  el.onclick=()=>selectTool(k);pal.appendChild(el);}
+function selectTool(k){tool=k;document.querySelectorAll('.tool').forEach(e=>e.classList.toggle('on',e.id==='tool-'+k));$('desc').textContent=BUILD[k].desc;}
+selectTool('wall');
+let toastT=0;function toast(s,dur=1.6){const t=$('toast');t.innerHTML=s;t.classList.add('show');toastT=dur}
+const KOKU=[['酉',17],['戌',19],['亥',21],['子',23],['丑',1],['寅',3],['卯',5],['辰',7]];
+function kokuName(h){h=((h%24)+24)%24;for(let k=KOKU.length-1;k>=0;k--){const s=KOKU[k][1];const e=(s+2)%24;const inR=s<e?(h>=s&&h<e):(h>=s||h<e);if(inR)return KOKU[k][0]}return '酉'}
+function hud(){
+  $('woodv').textContent=Math.floor(wood);$('killv').textContent=kills;
+  const hp=Math.max(0,keepHp);$('hpfill').style.width=(hp/KEEP_MAX*100)+'%';$('hpfill').classList.toggle('low',hp<KEEP_MAX*.3);$('hptxt').textContent=`${Math.ceil(hp)} / ${KEEP_MAX}`;
+  let h;if(phase==='battle'){h=6+tBattle/60}else h=18+12*tNight/NIGHT;
+  const hh=Math.floor(h)%24,mm=Math.floor((h%1)*60);
+  $('koku').textContent=phase==='battle'?`${kokuName(h)}の刻 ─ 合戦 第${waveIdx+1}陣`:`${kokuName(h)}の刻`;
+  const left=Math.max(0,NIGHT-tNight);
+  $('clocksub').textContent=phase==='battle'?`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}　倍速 ×${speed}`:`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}　明け六つまで ${Math.ceil(left)}秒`;
+  const alive=enemies.filter(e=>!e.dead).length+spawnQueue.length;
+  $('enemyv').textContent=phase==='battle'?alive:'—';
+  document.querySelectorAll('.tool').forEach(el=>{const k=el.id.slice(5);el.disabled=BUILD[k].cost>wood});
+}
+
+/* ---------- camera controls ---------- */
+const cam={th:.55,ph:.92,r:50,tx:0,tz:4};
+function updCam(){cam.ph=Math.min(1.35,Math.max(.25,cam.ph));cam.r=Math.min(90,Math.max(14,cam.r));
+  const s=Math.sin(cam.ph);camera.position.set(cam.tx+cam.r*s*Math.sin(cam.th),cam.r*Math.cos(cam.ph),cam.tz+cam.r*s*Math.cos(cam.th));camera.lookAt(cam.tx,0,cam.tz);}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();updCam();
+
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+const ghost=new THREE.Mesh(new THREE.BoxGeometry(2,.25,2),new THREE.MeshBasicMaterial({color:0x7cff9a,transparent:true,opacity:.35,depthWrite:false}));
+ghost.visible=false;scene.add(ghost);
+const ringMark=new THREE.Mesh(new THREE.RingGeometry(8.6,9,48),new THREE.MeshBasicMaterial({color:0xffc070,transparent:true,opacity:.35,side:THREE.DoubleSide}));
+ringMark.rotation.x=-Math.PI/2;ringMark.visible=false;scene.add(ringMark);
+function pick(e){const r=canvas.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera)}
+function groundCell(){const h=ray.intersectObject(field)[0];return h?wcell(h.point.x,h.point.z):-1}
+const ptrs=new Map();let drag=null,pinchD=0;
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinchD=Math.hypot(a.x-b.x,a.y-b.y);drag=null;return}
+  drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,btn:e.button,moved:false,pan:e.button===2||e.shiftKey}});
+canvas.addEventListener('pointermove',e=>{
+  if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(pinchD)cam.r*=pinchD/d;pinchD=d;updCam();return}
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+    if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>6)drag.moved=true;
+    if(drag.moved){if(drag.pan){const k=cam.r/600;const c=Math.cos(cam.th),s=Math.sin(cam.th);cam.tx-=(dx*c+dy*s)*k;cam.tz-=(-dx*s+dy*c)*k;cam.tx=Math.max(-26,Math.min(26,cam.tx));cam.tz=Math.max(-26,Math.min(26,cam.tz))}
+      else{cam.th-=dx*.006;cam.ph-=dy*.005}updCam()}}
+  pick(e);hover(groundCell());});
+canvas.addEventListener('pointerup',e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinchD=0;
+  if(drag&&!drag.moved&&drag.btn===0){pick(e);click()}drag=null});
+canvas.addEventListener('pointerleave',()=>{ghost.visible=false;ringMark.visible=false});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.r*=Math.exp(e.deltaY*.001);updCam()},{passive:false});
+addEventListener('keydown',e=>{for(const k in BUILD)if(BUILD[k].key===e.key)selectTool(k);if(e.key===' '&&phase==='night'){e.preventDefault();startBattle()}});
+
+function canPlace(i,t){
+  if(i<0)return false;const c=cells[i];
+  if(t==='axe')return c.t&&c.t!=='keep';
+  if(c.t||isRing(i))return false;if(BUILD[t].cost>wood)return false;
+  const[x,z]=cpos(i);if(enemies.some(e=>!e.dead&&Math.abs(e.x-x)<1.3&&Math.abs(e.z-z)<1.3))return false;
+  return true;
+}
+function hover(i){
+  if(phase!=='night'&&phase!=='battle'||i<0){ghost.visible=false;ringMark.visible=false;return}
+  const[x,z]=cpos(i);ghost.position.set(x,.14,z);ghost.visible=true;
+  ghost.material.color.set(canPlace(i,tool)?(tool==='axe'?0xffc070:0x7cff9a):0xff5040);
+  ringMark.visible=tool==='yagura';ringMark.position.set(x,.06,z);
+}
+function click(){
+  if(phase==='battle'){const hits=ray.intersectObjects(enemies.filter(e=>!e.dead).map(e=>e.g),true);
+    if(hits.length){let o=hits[0].object;while(o.parent&&!o.userData.foe)o=o.parent;if(o.userData.foe){playerShoot(o.userData.foe);return}}}
+  const i=groundCell();if(!canPlace(i,tool)){if(i>=0&&tool!=='axe'&&BUILD[tool].cost>wood)toast('木材が足りぬ',1);return}
+  audio();
+  if(tool==='axe'){const c=cells[i];
+    if(c.t==='tree'){wood+=12;setCell(i,'');tone(220,.12,'square',.05,120);toast('<span style="color:var(--lamp2)">木材 +12</span>',.8)}
+    else{const b=BUILD[c.t];const ref=Math.floor(b.cost*.5*(b.hp?c.hp/c.max:1));wood+=ref;setCell(i,'');tone(300,.1,'triangle',.05,180)}
+  }else{wood-=BUILD[tool].cost;setCell(i,tool);const m=cells[i].mesh;m.scale.set(1,.01,1);m.userData.grow=0;tone(tool==='moat'?260:420,.09,'square',.04,tool==='moat'?160:520)}
+  computeField();drawPaths();hover(i);
+}
+
+/* ---------- battle ---------- */
+function startBattle(){
+  if(phase!=='night')return;phase='battle';audio();drum(.5);setTimeout(()=>drum(.4),350);setTimeout(()=>drum(.55),700);
+  bannerGroup.clear();drawPaths();toast('明け六つ ─ 敵襲！<br><span style="font-size:15px">敵をクリックで天守から射かけよ</span>',2.6);
+  $('dawnBtn').textContent='倍速 ×1';nextWave();
+}
+function nextWave(){waveIdx++;const w=WAVES[waveIdx];spawnQueue=[];for(const k in w)for(let n=0;n<w[k];n++)spawnQueue.push(k);
+  spawnQueue.sort(()=>Math.random()-.5);spawnTimer=0;waveTimer=0;
+  if(waveIdx>0){toast(`第${waveIdx+1}陣、来襲`,1.8);drum(.5)}}
+function spawn(type){const s=sides[(Math.random()*sides.length)|0];const pool=spawnCells(s);const i=pool[(Math.random()*pool.length)|0];
+  const[x,z]=cpos(i);const f=FOE[type];const g=makeFoe(type);
+  const e={type,x:x+rnd(-.5,.5),z:z+rnd(-.5,.5),c:i,u:-1,hp:f.hp,max:f.hp,g,flash:0,dead:false,die:0,bob:rnd(0,6),atk:false};
+  g.userData.foe=e;g.position.set(e.x,0,e.z);scene.add(g);enemies.push(e);}
+function hurt(e,d){if(e.dead)return;e.hp-=d;e.flash=.12;if(e.hp<=0){e.dead=true;e.die=.6;kills++;wood+=FOE[e.type].wood;tone(160,.2,'sawtooth',.03,60)}}
+function fire(sx,sy,sz,e,dmg,player){const m=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,.9),new THREE.MeshBasicMaterial({color:player?0xffd27a:0xe8e4d8}));
+  m.position.set(sx,sy,sz);scene.add(m);projs.push({m,sx,sy,sz,e,t:0,dur:Math.max(.2,Math.hypot(e.x-sx,e.z-sz)/28),dmg});tone(player?900:700,.06,'triangle',.02,player?500:400)}
+let bowCd=0;
+function playerShoot(e){if(bowCd>0)return;bowCd=.45;audio();fire(0,9,0,e,34,true)}
+function destroy(i){const c=cells[i];tone(90,.35,'sawtooth',.06,40);setCell(i,'');computeField()}
+
+function stepBattle(dt){
+  tBattle+=dt;bowCd-=dt;
+  // sky to dawn/day
+  const k=Math.min(1,tBattle/10),k2=Math.min(1,Math.max(0,(tBattle-10)/20));
+  scene.background.copy(NIGHT_SKY).lerp(DAWN_SKY,k).lerp(DAY_SKY,k2);scene.fog.color.copy(scene.background);
+  hemi.intensity=.55+.45*k;moon.intensity=.65+.5*k;moon.color.set(0xa9bbff).lerp(new THREE.Color(0xffd2a0),k).lerp(new THREE.Color(0xfff3e0),k2);
+  moon.position.set(-30+60*k,50,-20);stars.material.opacity=1-k;
+  // spawning
+  spawnTimer-=dt;if(spawnQueue.length&&spawnTimer<=0){spawn(spawnQueue.shift());spawnTimer=.75}
+  const alive=enemies.some(e=>!e.dead);
+  if(!spawnQueue.length){waveTimer+=dt;if(waveIdx<WAVES.length-1&&(!alive||waveTimer>35))nextWave()}
+  fieldTimer-=dt;if(fieldTimer<=0){computeField();fieldTimer=.5}
+  // enemies
+  for(const e of enemies){
+    if(e.dead){e.die-=dt;e.g.scale.setScalar(Math.max(.01,e.die/.6));e.g.rotation.z=(1-e.die/.6)*1.4;continue}
+    const f=FOE[e.type];const here=wcell(e.x,e.z);
+    if(here>=0&&cells[here].t==='spike')hurt(e,14*dt);
+    if(e.u<0)e.u=nextCell(e.c);
+    const tc=cells[e.u];const[tx,tz]=cpos(e.u);const dx=tx-e.x,dz=tz-e.z,d=Math.hypot(dx,dz);
+    const blocking=tc.t==='keep'||(BUILD[tc.t]&&BUILD[tc.t].block);
+    e.g.rotation.y=Math.atan2(dx,dz);
+    if(blocking&&d<=S*.62){e.atk=true;
+      if(tc.t==='keep'){keepHp-=f.dps*dt;}
+      else{tc.hp-=f.dps*dt;const r=Math.max(0,tc.hp/tc.max);tc.mats.forEach((m,j)=>m.color.copy(tc.base[j]).multiplyScalar(.35+.65*r));if(tc.hp<=0)destroy(e.u)}
+      e.bob+=dt*14;e.g.position.set(e.x+Math.sin(e.bob)*.12*dx/d,0,e.z+Math.sin(e.bob)*.12*dz/d);
+    }else{e.atk=false;
+      const sp=f.spd*(here>=0&&cells[here].t==='moat'?.35:1)*(here>=0&&cells[here].t==='tree'?.7:1);
+      const st=Math.min(d,sp*dt);if(d>0){e.x+=dx/d*st;e.z+=dz/d*st}
+      if(d-st<.05){e.c=e.u;e.u=nextCell(e.c)}
+      e.bob+=dt*sp*5;e.g.position.set(e.x,Math.abs(Math.sin(e.bob))*.12,e.z);}
+    e.flash-=dt;e.g.userData.body.emissive.setHex(e.flash>0?0xff5533:0x000000);
+    if(e.hp<=0&&!e.dead)hurt(e,0);
+  }
+  enemies=enemies.filter(e=>{if(e.dead&&e.die<=0){scene.remove(e.g);return false}return true});
+  // towers
+  const live=enemies.filter(e=>!e.dead);
+  const shooters=[];for(let i=0;i<N*N;i++)if(cells[i].t==='yagura')shooters.push(i);
+  for(const i of shooters){const c=cells[i];c.cd-=dt;if(c.cd>0)continue;const[x,z]=cpos(i);
+    let best=null,bd=9*9;for(const e of live){const q=(e.x-x)**2+(e.z-z)**2;if(q<bd){bd=q;best=e}}
+    if(best){fire(x,3.4,z,best,15);c.cd=.85}}
+  // keep defenders
+  keepCd-=dt;if(keepCd<=0){let best=null,bd=10*10;for(const e of live){const q=e.x*e.x+e.z*e.z;if(q<bd){bd=q;best=e}}if(best){fire(0,7,0,best,10);keepCd=1.1}}
+  // projectiles
+  for(const p of projs){p.t+=dt;const a=Math.min(1,p.t/p.dur);const ex=p.e.x,ez=p.e.z,ey=.9;
+    const x=p.sx+(ex-p.sx)*a,z=p.sz+(ez-p.sz)*a,y=p.sy+(ey-p.sy)*a+Math.sin(a*Math.PI)*2;
+    p.m.lookAt(x,y,z);p.m.position.set(x,y,z);if(a>=1){hurt(p.e,p.dmg);p.done=true;scene.remove(p.m)}}
+  projs=projs.filter(p=>!p.done);
+  // end
+  if(keepHp<=0){end(false)}
+  else if(waveIdx===WAVES.length-1&&!spawnQueue.length&&!enemies.length){end(true)}
+}
+let keepCd=0;
+
+function end(win){phase='end';ghost.visible=false;ringMark.visible=false;
+  const pct=Math.max(0,keepHp)/KEEP_MAX;
+  const rank=!win?'落城':pct>=.8?'天下人の一夜城':pct>=.5?'名城の誉れ':'辛くも持ちこたえた';
+  $('endEyebrow').textContent=win?'明け方の合戦 ─ 勝ち戦':'明け方の合戦 ─ 負け戦';
+  $('endTitle').textContent=win?'城を守り抜いた':'天守、落ちる';
+  $('endRank').textContent=rank;
+  const built=cells.filter(c=>c.t&&c.t!=='tree'&&c.t!=='keep').length;
+  $('endTable').innerHTML=`<tr><td>天守の耐久</td><td>${Math.ceil(Math.max(0,keepHp))} / ${KEEP_MAX}（${Math.round(pct*100)}%）</td></tr><tr><td>討ち取った敵</td><td>${kills}</td></tr><tr><td>残った普請</td><td>${built}基</td></tr><tr><td>残った木材</td><td>${Math.floor(wood)}</td></tr><tr><td>攻め口</td><td>${SIDES[sides[0]]}・${SIDES[sides[1]]}</td></tr>`;
+  setTimeout(()=>{$('endov').hidden=false},900);drum(.6);
+}
+
+/* ---------- buttons ---------- */
+$('startBtn').onclick=()=>{audio();tone(520,.15,'triangle',.05,780);$('intro').hidden=true;phase='night';toast('普請はじめ',1.4)};
+$('retryBtn').onclick=()=>{$('endov').hidden=true;phase='night';reset();toast('再び、夜が来た',1.4)};
+$('dawnBtn').onclick=()=>{if(phase==='night')startBattle();else if(phase==='battle'){speed=speed===1?2:speed===2?3:1;$('dawnBtn').textContent='倍速 ×'+speed}};
+
+/* ---------- loop ---------- */
+reset();
+let last=performance.now(),hudT=0;
+function loop(now){requestAnimationFrame(loop);if(!$('intro').hidden)return;let dt=Math.min(.05,(now-last)/1000);last=now;
+  if(phase==='night'){tNight+=dt;if(tNight>=NIGHT){tNight=NIGHT;startBattle()}
+    torch.intensity=1.3+Math.sin(now*.013)*.12+Math.sin(now*.031)*.08;}
+  if(phase==='battle'){for(let s=0;s<speed;s++)stepBattle(dt);torch.intensity=Math.max(.3,1.3-tBattle*.05)}
+  world.children.forEach(g=>{if(g.userData.grow!==undefined&&g.userData.grow<1){g.userData.grow=Math.min(1,g.userData.grow+dt*5);g.scale.y=.01+.99*(1-Math.pow(1-g.userData.grow,3))}});
+  bannerGroup.children.forEach((b,j)=>{if(b.geometry.type==='PlaneGeometry')b.rotation.y=Math.sin(now*.003+j)*.4});
+  if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('show')}
+  hudT-=dt;if(hudT<=0){hud();hudT=.1}
+  renderer.render(scene,camera);}
+requestAnimationFrame(loop);
+let lastTouchEnd=0;
+document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=n;},{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault());
+document.addEventListener('contextmenu',e=>e.preventDefault());
+})();
+</script>
+
+</body></html>
